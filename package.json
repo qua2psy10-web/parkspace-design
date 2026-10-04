@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "exceljs": "^4.4.0",
+    "jspdf": "^4.2.1",
     "leaflet": "^1.9.4",
     "polygon-clipping": "^0.15.7",
     "proj4": "^2.22.0"

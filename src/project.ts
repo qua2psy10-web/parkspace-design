@@ -1,9 +1,19 @@
-import type { LatLng } from './geo/projection';
+import type { LatLng, Pt } from './geo/projection';
+import type { Plan } from './layout/generator';
 import type { SiteState } from './map/editor';
 import { type LayoutParams, VEHICLE_KINDS, type VehicleKind, withDefaults } from './layout/standards';
 
 export const PROJECT_FORMAT = 'parkspace-project';
-export const PROJECT_VERSION = 1;
+export const PROJECT_VERSION = 2;
+
+/** 保存する割付結果（エリアごとの採用案。座標は平面直角座標） */
+export interface SavedResult {
+  /** 結果を作ったときの座標系。今の座標系と違えば使わない */
+  zone: number;
+  /** 手直ししたか */
+  edited: boolean;
+  areas: { kind: VehicleKind; outer: Pt[]; holes: Pt[][]; plan: Plan | null }[];
+}
 
 /** 案件ファイル（.parking.json）の中身。ブラウザ内の自動保存も同じ形 */
 export interface ProjectData {
@@ -15,6 +25,8 @@ export interface ProjectData {
   params: Record<VehicleKind, LayoutParams>;
   view?: { center: LatLng; zoom: number };
   baseLayer?: string;
+  /** 版2から: 割付結果（手直しを含む） */
+  result?: SavedResult;
 }
 
 export function emptyProject(): ProjectData {
@@ -85,6 +97,8 @@ export function parseProject(data: unknown): ProjectData {
     if (center && typeof zoom === 'number') p.view = { center, zoom };
   }
   if (typeof data.baseLayer === 'string') p.baseLayer = data.baseLayer;
+  const result = parseResult(data.result);
+  if (result && result.zone === p.zone) p.result = result;
   return p;
 }
 
@@ -96,4 +110,38 @@ export function serializeProject(p: ProjectData): string {
 export function fileBaseName(name: string): string {
   const s = name.trim().replace(/[\\/:*?"<>|\s]+/g, '_');
   return s || 'parking';
+}
+
+const isPt = (v: unknown): v is Pt => isObj(v) && typeof v.x === 'number' && typeof v.y === 'number';
+const isRing = (v: unknown): v is Pt[] => Array.isArray(v) && v.every(isPt);
+
+/** 割付結果の読込。形がおかしければ捨てる（条件から計算し直せるため） */
+function parseResult(v: unknown): SavedResult | undefined {
+  if (!isObj(v) || typeof v.zone !== 'number' || !Array.isArray(v.areas)) return undefined;
+  const areas: SavedResult['areas'] = [];
+  for (const a of v.areas) {
+    if (!isObj(a) || !VEHICLE_KINDS.includes(a.kind as VehicleKind) || !isRing(a.outer)) return undefined;
+    const holes = Array.isArray(a.holes) && a.holes.every(isRing) ? (a.holes as Pt[][]) : [];
+    let plan: Plan | null = null;
+    if (isObj(a.plan)) {
+      const pl = a.plan;
+      const stallsOk =
+        Array.isArray(pl.stalls) && pl.stalls.every((s) => isObj(s) && isRing(s.corners) && (s.kind === 'normal' || s.kind === 'wheelchair'));
+      if (!stallsOk || typeof pl.angle !== 'number' || typeof pl.direction !== 'number') return undefined;
+      plan = {
+        angle: pl.angle as Plan['angle'],
+        direction: pl.direction,
+        count: (pl.stalls as unknown[]).length,
+        wheelchair: (pl.stalls as Plan['stalls']).filter((s) => s.kind === 'wheelchair').length,
+        added: typeof pl.added === 'number' ? pl.added : 0,
+        stalls: pl.stalls as Plan['stalls'],
+        aisles: Array.isArray(pl.aisles) && pl.aisles.every(isRing) ? (pl.aisles as Pt[][]) : [],
+        trunks: Array.isArray(pl.trunks) && pl.trunks.every(isRing) ? (pl.trunks as Pt[][]) : [],
+        arrows: Array.isArray(pl.arrows) && pl.arrows.every((r) => isObj(r) && isPt(r.from) && isPt(r.to)) ? (pl.arrows as Plan['arrows']) : [],
+        warnings: Array.isArray(pl.warnings) ? pl.warnings.filter((w): w is string => typeof w === 'string') : [],
+      };
+    }
+    areas.push({ kind: a.kind as VehicleKind, outer: a.outer, holes, plan });
+  }
+  return { zone: v.zone, edited: v.edited === true, areas };
 }

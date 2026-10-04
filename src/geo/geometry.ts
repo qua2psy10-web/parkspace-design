@@ -226,3 +226,23 @@ export function convexOverlap(a: Pt[], b: Pt[], eps = 1e-6): boolean {
   }
   return true;
 }
+
+/**
+ * 凸多角形 a と任意の多角形 ring（凹でもよい）が重なるか。
+ * 辺が接しているだけなら重ならないとみなす。
+ */
+export function polyOverlap(a: Pt[], ring: Pt[]): boolean {
+  const edges = ringsToEdges([ring]);
+  // a の頂点・重心が ring の内側にある
+  if ([...a, centroid(a)].some((p) => pointStatus(p, edges) === 'in')) return true;
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i];
+    const q = ring[(i + 1) % ring.length];
+    // ring の頂点や辺の中点が a の内側にある
+    if (strictlyInsideConvex(p, a) || strictlyInsideConvex({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }, a)) return true;
+    for (let j = 0; j < a.length; j++) {
+      if (segmentsCross(p, q, a[j], a[(j + 1) % a.length])) return true;
+    }
+  }
+  return false;
+}

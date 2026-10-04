@@ -31,6 +31,44 @@ describe('案件ファイル', () => {
     expect(p.params.large.stallLength).toBe(13.0);
   });
 
+  it('版2: 割付結果（手直しを含む）も保存→読込で一致する', () => {
+    const p = emptyProject();
+    p.zone = 9;
+    p.result = {
+      zone: 9,
+      edited: true,
+      areas: [
+        {
+          kind: 'normal',
+          outer: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }],
+          holes: [],
+          plan: {
+            angle: 90,
+            direction: 0,
+            count: 1,
+            wheelchair: 0,
+            added: 0,
+            stalls: [{ corners: [{ x: 0, y: 6 }, { x: 2.5, y: 6 }, { x: 2.5, y: 0 }, { x: 0, y: 0 }], kind: 'normal' }],
+            aisles: [],
+            trunks: [],
+            arrows: [],
+            warnings: [],
+          },
+        },
+      ],
+    };
+    const back = parseProject(JSON.parse(serializeProject(p)));
+    expect(back.result).toEqual(p.result);
+    expect(back.version).toBe(2);
+  });
+
+  it('座標系が違う割付結果は使わない', () => {
+    const p = emptyProject();
+    p.zone = 9;
+    p.result = { zone: 8, edited: false, areas: [] };
+    expect(parseProject(JSON.parse(serializeProject(p))).result).toBeUndefined();
+  });
+
   it('別の形式のファイルは読み込まない', () => {
     expect(() => parseProject({ format: 'other' })).toThrow();
     expect(() => parseProject([1, 2])).toThrow();
