@@ -1,11 +1,10 @@
-import { generatePlans, type SiteInput } from './generator';
-import type { LayoutParams } from './standards';
+import { type AreasInput, layoutAreas } from './areas';
 
 // 割付計算を画面とは別スレッドで行う
-self.onmessage = (e: MessageEvent<{ site: SiteInput; params: LayoutParams }>) => {
+self.onmessage = (e: MessageEvent<AreasInput>) => {
   try {
-    const plans = generatePlans(e.data.site, e.data.params);
-    self.postMessage({ ok: true, plans });
+    const results = layoutAreas(e.data);
+    self.postMessage({ ok: true, results });
   } catch (err) {
     self.postMessage({ ok: false, error: err instanceof Error ? err.message : String(err) });
   }

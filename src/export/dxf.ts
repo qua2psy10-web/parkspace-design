@@ -1,6 +1,6 @@
 import type { Pt } from '../geo/projection';
-import type { Plan } from '../layout/generator';
 import { arrowPolyline } from '../layout/arrow';
+import { numberStalls, type SelectedArea, type StallClass } from '../layout/summary';
 
 /**
  * DXF（R12, AC1009）を書き出す。座標は平面直角座標（m）、
@@ -13,6 +13,10 @@ const LAYERS: { name: string; color: number }[] = [
   { name: 'OBSTACLE', color: 8 }, // 障害物（灰）
   { name: 'STALL', color: 7 }, // 駐車マス（白/黒）
   { name: 'STALL_HC', color: 5 }, // 車いす使用者用（青）
+  { name: 'STALL_LARGE', color: 1 }, // 大型車（赤）
+  { name: 'STALL_BIKE', color: 4 }, // バイク（水色）
+  { name: 'STALL_BICYCLE', color: 3 }, // 自転車（緑）
+  { name: 'AREA', color: 9 }, // 車種エリアの境界（薄灰）
   { name: 'AISLE', color: 3 }, // 車路（緑）
   { name: 'TRUNK', color: 4 }, // 幹線車路（水色）
   { name: 'ENTRANCE', color: 6 }, // 出入口（紫）
@@ -24,11 +28,20 @@ export interface DxfInput {
   boundary: Pt[];
   obstacles: Pt[][];
   entrances: { a: Pt; b: Pt }[];
-  plan: Plan;
+  areas: SelectedArea[];
   zoneLabel: string;
 }
 
-const ANGLE_ASCII: Record<number, string> = { 90: '90DEG', 60: '60DEG', 45: '45DEG', 0: 'PARALLEL' };
+const STALL_LAYER: Record<StallClass, string> = {
+  normal: 'STALL',
+  wheelchair: 'STALL_HC',
+  large: 'STALL_LARGE',
+  bike: 'STALL_BIKE',
+  bicycle: 'STALL_BICYCLE',
+};
+
+/** マス番号の文字高さ（マスが小さい二輪は小さくする, m） */
+const TEXT_HEIGHT: Record<StallClass, number> = { normal: 0.5, wheelchair: 0.5, large: 0.8, bike: 0.25, bicycle: 0.15 };
 
 export function buildDxf(input: DxfInput): string {
   const out: string[] = [];
@@ -36,7 +49,8 @@ export function buildDxf(input: DxfInput): string {
     out.push(String(code), typeof value === 'number' ? fmt(value) : value);
   };
 
-  const all = [input.boundary, ...input.plan.stalls.map((s) => s.corners)].flat();
+  const stalls = numberStalls(input.areas);
+  const all = [input.boundary, ...stalls.map((s) => s.corners)].flat();
   const xs = all.map((p) => p.x);
   const ys = all.map((p) => p.y);
 
@@ -105,33 +119,35 @@ export function buildDxf(input: DxfInput): string {
 
   poly('BOUNDARY', input.boundary);
   for (const o of input.obstacles) poly('OBSTACLE', o);
-  for (const r of input.plan.aisles) poly('AISLE', r);
-  for (const r of input.plan.trunks) poly('TRUNK', r);
   for (const e of input.entrances) poly('ENTRANCE', [e.a, e.b], false);
-  for (const a of input.plan.arrows) poly('ARROW', arrowPolyline(a), false);
+  for (const a of input.areas) {
+    if (a.kind !== 'normal') {
+      poly('AREA', a.outer);
+      a.holes.forEach((h) => poly('AREA', h));
+    }
+    if (!a.plan) continue;
+    for (const r of a.plan.aisles) poly('AISLE', r);
+    for (const r of a.plan.trunks) poly('TRUNK', r);
+    for (const ar of a.plan.arrows) poly('ARROW', arrowPolyline(ar), false);
+  }
 
-  input.plan.stalls.forEach((s, i) => {
-    const layer = s.kind === 'wheelchair' ? 'STALL_HC' : 'STALL';
-    poly(layer, s.corners);
-    const c = {
-      x: s.corners.reduce((a, p) => a + p.x, 0) / s.corners.length,
-      y: s.corners.reduce((a, p) => a + p.y, 0) / s.corners.length,
-    };
-    text('TEXT', c, 0.5, s.kind === 'wheelchair' ? `HC${i + 1}` : String(i + 1));
-  });
+  for (const s of stalls) {
+    poly(STALL_LAYER[s.cls], s.corners);
+    text('TEXT', s.center, TEXT_HEIGHT[s.cls], s.id);
+  }
 
   const title = {
     x: Math.min(...xs),
     y: Math.max(...ys) + 3,
   };
-  const p = input.plan;
+  const n = (c: StallClass) => stalls.filter((s) => s.cls === c).length;
   g(0, 'TEXT');
   g(8, 'TEXT');
   g(10, title.x);
   g(20, title.y);
   g(30, 0);
   g(40, 1.5);
-  g(1, `PARKING ${ANGLE_ASCII[p.angle]}  TOTAL ${p.count}  HC ${p.wheelchair}  JGD2011 ZONE ${input.zoneLabel}`);
+  g(1, `PARKING TOTAL ${stalls.length}  CAR ${n('normal')}  HC ${n('wheelchair')}  LARGE ${n('large')}  BIKE ${n('bike')}  BICYCLE ${n('bicycle')}  JGD2011 ZONE ${input.zoneLabel}`);
 
   g(0, 'ENDSEC');
   g(0, 'EOF');

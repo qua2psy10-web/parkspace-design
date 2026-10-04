@@ -88,3 +88,68 @@ export function stallShape(angle: AngleType, p: LayoutParams, width = p.stallWid
   const side = depth / Math.sin(t);
   return { pitch: width / Math.sin(t), depth, shift: side * Math.cos(t) };
 }
+
+/** 車種 */
+export type VehicleKind = 'normal' | 'large' | 'bike' | 'bicycle';
+
+export const VEHICLE_KINDS: VehicleKind[] = ['normal', 'large', 'bike', 'bicycle'];
+
+export const VEHICLE_LABELS: Record<VehicleKind, string> = {
+  normal: '普通車',
+  large: '大型車',
+  bike: 'バイク',
+  bicycle: '自転車',
+};
+
+/**
+ * 車種別の初期値。
+ * - 大型車: マス 3.3m × 13.0m（駐車場設計・施工指針の大型バス・普通貨物車）
+ * - バイク: マス 1.0m × 2.3m（同指針の自動二輪車）
+ * - 自転車: マス 0.6m × 1.9m
+ * 大型車の角度別車路幅、二輪の通路幅・幹線車路幅は一般的な目安の値。案件の基準と照合して画面で修正すること。
+ */
+export const VEHICLE_DEFAULTS: Record<VehicleKind, LayoutParams> = {
+  normal: DEFAULT_PARAMS,
+  large: {
+    ...DEFAULT_PARAMS,
+    stallWidth: 3.3,
+    stallLength: 13.0,
+    parallelLength: 17.0,
+    parallelWidth: 3.3,
+    aisle: { 90: 13.0, 60: 10.0, 45: 8.0, 0: 5.0 },
+    trunkWidth: 8.0,
+    entranceWidth: 8.0,
+    wheelchairCount: 0,
+    angles: [90, 60, 45],
+  },
+  bike: {
+    ...DEFAULT_PARAMS,
+    stallWidth: 1.0,
+    stallLength: 2.3,
+    parallelLength: 2.3,
+    parallelWidth: 1.0,
+    aisle: { 90: 2.5, 60: 2.0, 45: 2.0, 0: 2.0 },
+    trunkWidth: 3.0,
+    entranceWidth: 3.0,
+    wheelchairCount: 0,
+    angles: [90],
+  },
+  bicycle: {
+    ...DEFAULT_PARAMS,
+    stallWidth: 0.6,
+    stallLength: 1.9,
+    parallelLength: 1.9,
+    parallelWidth: 0.6,
+    aisle: { 90: 1.5, 60: 1.5, 45: 1.5, 0: 1.5 },
+    trunkWidth: 2.0,
+    entranceWidth: 2.0,
+    wheelchairCount: 0,
+    angles: [90],
+  },
+};
+
+/** 保存データなどから読んだパラメータを初期値で補う */
+export function withDefaults(kind: VehicleKind, p?: Partial<LayoutParams>): LayoutParams {
+  const d = VEHICLE_DEFAULTS[kind];
+  return { ...structuredClone(d), ...p, aisle: { ...d.aisle, ...p?.aisle } };
+}

@@ -41,6 +41,15 @@
             <button data-mode="obstacle">障害物を追加</button>
             <button data-mode="entrance">出入口を追加</button>
           </div>
+          <div class="row">
+            <button data-mode="area">エリアを追加</button>
+            <select id="areaKind" aria-label="エリアの種類">
+              <option value="large">大型車</option>
+              <option value="bike">バイク</option>
+              <option value="bicycle">自転車</option>
+            </select>
+          </div>
+          <p class="note">エリアを描かなかった部分は普通車エリアになります。</p>
           <div id="drawHint" class="hint" hidden>
             <span id="drawHintText"></span>
             <div class="row">
@@ -51,12 +60,14 @@
           <p id="siteInfo" class="note"></p>
           <ul id="obstacleList" class="items"></ul>
           <ul id="entranceList" class="items"></ul>
+          <ul id="areaList" class="items"></ul>
           <button id="clearSite" class="link">敷地をすべて消去</button>
         </section>
 
         <section>
           <h2>3. 寸法条件</h2>
-          <p class="note">初期値は駐車場設計・施工指針の普通乗用車 2.5m×6.0m など。角度別の車路幅は案件の基準に合わせて修正してください。</p>
+          <div id="kindTabs" class="tabs" role="tablist"></div>
+          <p id="paramsNote" class="note"></p>
           <div id="params" class="params"></div>
           <div class="angles" id="angles"></div>
           <div class="options" id="options"></div>
@@ -67,16 +78,24 @@
           <h2>4. 自動割付</h2>
           <button id="runBtn" class="primary wide">自動割付を実行</button>
           <p id="runStatus" class="note"></p>
-          <table id="results" hidden>
-            <thead><tr><th>方式</th><th>車路方向</th><th>台数</th><th>車いす</th></tr></thead>
-            <tbody></tbody>
-          </table>
-          <ul id="warnings" class="warnings"></ul>
+          <p id="totals" class="totals" hidden></p>
+          <div id="results"></div>
         </section>
 
         <section>
-          <h2>5. 出力</h2>
-          <button id="dxfBtn" class="wide" disabled>DXFを保存</button>
+          <h2>5. 保存・出力</h2>
+          <label class="field">案件名
+            <input id="projectName" type="text" placeholder="例: ○○店駐車場" />
+          </label>
+          <div class="buttons">
+            <button id="saveProject">案件を保存</button>
+            <button id="openProject">案件を開く</button>
+            <input id="projectFile" type="file" accept=".json,application/json" hidden />
+          </div>
+          <div class="buttons">
+            <button id="dxfBtn" disabled>DXFを保存</button>
+            <button id="xlsxBtn" disabled>Excel集計表を保存</button>
+          </div>
           <p class="note">座標は平面直角座標（JGD2011, m）。作図X=東方向（測量Y）、作図Y=北方向（測量X）。測量図との最終合わせはCADで行ってください。</p>
         </section>
       </aside>
