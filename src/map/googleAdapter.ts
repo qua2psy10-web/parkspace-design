@@ -30,13 +30,25 @@ function gsiMapType(url: string, name: string, maxZoom: number): google.maps.Ima
   });
 }
 
-function polyOptions(s: ShapeStyle) {
+function polyOptions(s: ShapeStyle, clickable = false) {
   return {
     strokeColor: s.stroke,
     strokeWeight: s.strokeWidth,
     fillColor: s.fill ?? s.stroke,
     fillOpacity: s.fill ? (s.fillOpacity ?? 0.3) : 0,
+    clickable,
+  };
+}
+
+function lineOptions(style: ShapeStyle): google.maps.PolylineOptions {
+  return {
+    strokeColor: style.stroke,
+    strokeWeight: style.strokeWidth,
     clickable: false,
+    strokeOpacity: style.dashed ? 0 : 1,
+    icons: style.dashed
+      ? [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, strokeColor: style.stroke, scale: style.strokeWidth }, offset: '0', repeat: '10px' }]
+      : undefined,
   };
 }
 
@@ -74,23 +86,22 @@ export function createGoogleAdapter(el: HTMLElement, center: LatLng, zoom: numbe
         if (e.latLng) cb({ lat: e.latLng.lat(), lng: e.latLng.lng() });
       });
     },
-    addPolygon(path, style) {
-      const shape = new google.maps.Polygon({ ...polyOptions(style), paths: path, map });
-      return { setPath: (p) => shape.setPaths(p), remove: () => shape.setMap(null) };
+    addPolygon(path, style, onClick) {
+      const shape = new google.maps.Polygon({ ...polyOptions(style, !!onClick), paths: path, map });
+      if (onClick) shape.addListener('click', () => onClick());
+      return {
+        setPath: (p) => shape.setPaths(p),
+        setStyle: (st) => shape.setOptions(polyOptions(st, !!onClick)),
+        remove: () => shape.setMap(null),
+      };
     },
     addPolyline(path, style) {
-      const shape = new google.maps.Polyline({
-        path,
-        map,
-        strokeColor: style.stroke,
-        strokeWeight: style.strokeWidth,
-        clickable: false,
-        strokeOpacity: style.dashed ? 0 : 1,
-        icons: style.dashed
-          ? [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, strokeColor: style.stroke, scale: style.strokeWidth }, offset: '0', repeat: '10px' }]
-          : undefined,
-      });
-      return { setPath: (p) => shape.setPath(p), remove: () => shape.setMap(null) };
+      const shape = new google.maps.Polyline({ ...lineOptions(style), path, map });
+      return {
+        setPath: (p) => shape.setPath(p),
+        setStyle: (st) => shape.setOptions(lineOptions(st)),
+        remove: () => shape.setMap(null),
+      };
     },
     addMarker(p, opts: MarkerOptions) {
       const m = new google.maps.Marker({

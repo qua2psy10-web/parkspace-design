@@ -10,6 +10,7 @@ export interface ShapeStyle {
 
 export interface Shape {
   setPath(path: LatLng[]): void;
+  setStyle(style: ShapeStyle): void;
   remove(): void;
 }
 
@@ -40,7 +41,8 @@ export interface MapAdapter {
   readonly baseLayers: BaseLayer[];
   setBaseLayer(id: string): void;
   onClick(cb: (p: LatLng) => void): void;
-  addPolygon(path: LatLng[], style: ShapeStyle): Shape;
+  /** onClick を渡すと図形のクリックを受け取る（地図のクリックにはならない） */
+  addPolygon(path: LatLng[], style: ShapeStyle, onClick?: () => void): Shape;
   addPolyline(path: LatLng[], style: ShapeStyle): Shape;
   addMarker(p: LatLng, opts: MarkerOptions): MarkerHandle;
   setView(p: LatLng, zoom: number): void;

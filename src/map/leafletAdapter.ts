@@ -5,14 +5,14 @@ import { GSI_ATTRIBUTION, GSI_LAYERS, type MapAdapter, type MarkerOptions, type 
 
 const toL = (p: LatLng): L.LatLngExpression => [p.lat, p.lng];
 
-function pathOptions(s: ShapeStyle): L.PathOptions {
+function pathOptions(s: ShapeStyle, interactive = false): L.PathOptions {
   return {
     color: s.stroke,
     weight: s.strokeWidth,
     fillColor: s.fill ?? s.stroke,
     fillOpacity: s.fill ? (s.fillOpacity ?? 0.3) : 0,
     dashArray: s.dashed ? '6 4' : undefined,
-    interactive: false,
+    interactive,
   };
 }
 
@@ -48,10 +48,17 @@ export function createLeafletAdapter(el: HTMLElement, center: LatLng, zoom: numb
     onClick(cb) {
       map.on('click', (e: L.LeafletMouseEvent) => cb({ lat: e.latlng.lat, lng: e.latlng.lng }));
     },
-    addPolygon(path, style) {
-      const shape = L.polygon(path.map(toL), pathOptions(style)).addTo(map);
+    addPolygon(path, style, onClick) {
+      const shape = L.polygon(path.map(toL), pathOptions(style, !!onClick)).addTo(map);
+      if (onClick) {
+        shape.on('click', (e: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e);
+          onClick();
+        });
+      }
       return {
         setPath: (p) => shape.setLatLngs(p.map(toL)),
+        setStyle: (st) => shape.setStyle(pathOptions(st, !!onClick)),
         remove: () => shape.remove(),
       };
     },
@@ -59,6 +66,7 @@ export function createLeafletAdapter(el: HTMLElement, center: LatLng, zoom: numb
       const shape = L.polyline(path.map(toL), pathOptions(style)).addTo(map);
       return {
         setPath: (p) => shape.setLatLngs(p.map(toL)),
+        setStyle: (st) => shape.setStyle(pathOptions(st)),
         remove: () => shape.remove(),
       };
     },

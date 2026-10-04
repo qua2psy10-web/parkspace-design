@@ -79,6 +79,30 @@
           <button id="runBtn" class="primary wide">自動割付を実行</button>
           <p id="runStatus" class="note"></p>
           <p id="totals" class="totals" hidden></p>
+          <button id="editBtn" class="wide" hidden>マスを手直しする</button>
+          <div id="editPanel" class="hint" hidden>
+            <p id="editHint" class="note">マスをクリックすると選びます。空いている所をクリックすると、近くの列の続きにマスを追加します。</p>
+            <div class="buttons">
+              <button id="editDelete" disabled>選んだマスを削除</button>
+              <button id="editRow" disabled>列ごと選ぶ</button>
+              <button id="editUndo" disabled>元に戻す</button>
+            </div>
+            <div class="move-pad">
+              <button data-move="back" disabled title="奥へ">▲ 奥へ</button>
+              <button data-move="left" disabled title="列に沿って">◀ 列方向</button>
+              <button data-move="right" disabled title="列に沿って">列方向 ▶</button>
+              <button data-move="front" disabled title="車路側へ">▼ 車路側へ</button>
+            </div>
+            <label class="field">移動の刻み
+              <select id="editStep">
+                <option value="0.1">0.1 m</option>
+                <option value="0.5" selected>0.5 m</option>
+                <option value="1">1.0 m</option>
+              </select>
+            </label>
+            <p id="editStatus" class="note"></p>
+            <button id="editDone" class="primary wide">手直しを終える</button>
+          </div>
           <div id="results"></div>
         </section>
 
@@ -95,6 +119,38 @@
           <div class="buttons">
             <button id="dxfBtn" disabled>DXFを保存</button>
             <button id="xlsxBtn" disabled>Excel集計表を保存</button>
+          </div>
+          <div class="pdf-options">
+            <label class="field">用紙
+              <select id="pdfPaper">
+                <option value="A4">A4 横</option>
+                <option value="A3" selected>A3 横</option>
+                <option value="A1">A1 横</option>
+              </select>
+            </label>
+            <label class="field">縮尺
+              <select id="pdfScale">
+                <option value="auto" selected>自動</option>
+                <option value="100">1/100</option>
+                <option value="200">1/200</option>
+                <option value="250">1/250</option>
+                <option value="300">1/300</option>
+                <option value="500">1/500</option>
+                <option value="600">1/600</option>
+                <option value="1000">1/1000</option>
+                <option value="1500">1/1500</option>
+                <option value="2000">1/2000</option>
+                <option value="2500">1/2500</option>
+              </select>
+            </label>
+            <label class="field">背景
+              <select id="pdfPhoto">
+                <option value="photo" selected>地理院写真あり</option>
+                <option value="none">線画のみ</option>
+              </select>
+            </label>
+            <button id="pdfBtn" class="wide" disabled>PDF図面を保存</button>
+            <p id="pdfStatus" class="note"></p>
           </div>
           <p class="note">座標は平面直角座標（JGD2011, m）。作図X=東方向（測量Y）、作図Y=北方向（測量X）。測量図との最終合わせはCADで行ってください。</p>
         </section>
