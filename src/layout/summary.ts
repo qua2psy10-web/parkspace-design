@@ -1,6 +1,6 @@
 import type { Pt } from '../geo/projection';
 import { signedArea } from '../geo/geometry';
-import type { Plan } from './generator';
+import type { Plan, Stall } from './generator';
 import { ANGLE_LABELS, VEHICLE_LABELS, type VehicleKind } from './standards';
 
 /** 出力に使う、エリアごとの採用案 */
@@ -48,12 +48,44 @@ export function areaLabels(kinds: VehicleKind[]): string[] {
   });
 }
 
-/** 全エリアのマスに、種類ごとの通し番号をつける */
+/** 同じ列とみなす前面位置の差（m） */
+const ROW_GAP = 0.5;
+
+/**
+ * マスを並び順に並べ替える。案の車路方向 d と直角方向 n を基準に、
+ * 前面の辺の中点の n 方向の位置で列に分け（0.5m 以上離れたら別の列）、
+ * 列は n の小さい順、列の中は中心の d 方向の位置の小さい順にする。
+ * 手直しで追加したマスも、置いた位置の順番になる。
+ */
+export function sortStalls(stalls: Stall[], directionDeg: number): Stall[] {
+  const t = (directionDeg * Math.PI) / 180;
+  const d = { x: Math.cos(t), y: Math.sin(t) };
+  const n = { x: -d.y, y: d.x };
+  const items = stalls.map((s) => {
+    const q = s.corners;
+    const fm = { x: (q[0].x + q[1].x) / 2, y: (q[0].y + q[1].y) / 2 };
+    const c = { x: q.reduce((v, p) => v + p.x, 0) / q.length, y: q.reduce((v, p) => v + p.y, 0) / q.length };
+    return { s, row: fm.x * n.x + fm.y * n.y, along: c.x * d.x + c.y * d.y };
+  });
+  items.sort((a, b) => a.row - b.row);
+  // 前面位置が近いものを同じ列にまとめる
+  let rowId = 0;
+  const rowOf = items.map((it, i) => {
+    if (i > 0 && it.row - items[i - 1].row >= ROW_GAP) rowId++;
+    return rowId;
+  });
+  return items
+    .map((it, i) => ({ ...it, rowId: rowOf[i] }))
+    .sort((a, b) => a.rowId - b.rowId || a.along - b.along)
+    .map((it) => it.s);
+}
+
+/** 全エリアのマスに、種類ごとの通し番号をつける（エリアごとに並び順に整列してから振る） */
 export function numberStalls(areas: SelectedArea[]): NumberedStall[] {
   const counter: Partial<Record<StallClass, number>> = {};
   const out: NumberedStall[] = [];
   for (const a of areas) {
-    for (const s of a.plan?.stalls ?? []) {
+    for (const s of a.plan ? sortStalls(a.plan.stalls, a.plan.direction) : []) {
       const cls: StallClass = s.kind === 'wheelchair' ? 'wheelchair' : a.kind;
       counter[cls] = (counter[cls] ?? 0) + 1;
       const q = s.corners;
