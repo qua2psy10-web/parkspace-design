@@ -8,6 +8,7 @@ import { type EditMode, SiteEditor, type SiteState } from './map/editor';
 import type { Plan, SiteInput } from './layout/generator';
 import { ANGLE_LABELS, type AngleType, DEFAULT_PARAMS, type LayoutParams } from './layout/standards';
 import { buildDxf } from './export/dxf';
+import { arrowPolyline } from './layout/arrow';
 import * as store from './storage';
 
 const KEY_API = 'parkspace.apiKey';
@@ -228,6 +229,7 @@ async function main() {
         }),
       );
     }
+    for (const a of plan.arrows) resultShapes.push(map.addPolyline(ll(arrowPolyline(a)), { stroke: '#ffcc00', strokeWidth: 3 }));
   }
 
   function renderResultTable() {
@@ -239,7 +241,7 @@ async function main() {
     state.plans.slice(0, 12).forEach((p, i) => {
       const tr = document.createElement('tr');
       tr.className = i === state.selected ? 'selected' : '';
-      tr.innerHTML = `<td>${ANGLE_LABELS[p.angle]}</td><td>${p.direction.toFixed(1)}°</td><td class="num">${p.count}</td><td class="num">${p.wheelchair}</td>`;
+      tr.innerHTML = `<td>${ANGLE_LABELS[p.angle]}</td><td>${p.direction.toFixed(1)}°</td><td class="num">${p.count}${p.added ? `<small>（余白+${p.added}）</small>` : ''}</td><td class="num">${p.wheelchair}</td>`;
       tr.onclick = () => selectPlan(i);
       tbody.append(tr);
     });
@@ -415,6 +417,24 @@ function buildParamsForm(onChange: () => void) {
     };
     label.append(cb, ` ${ANGLE_LABELS[a]}`);
     angles.append(label);
+  }
+
+  const options = $('options');
+  options.innerHTML = '';
+  for (const [key, text] of [
+    ['loopAisles', '行き止まり車路をなくす（周回車路）'],
+    ['infill', '幹線車路・車路沿いの余白にマスを追加'],
+  ] as const) {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = state.params[key];
+    cb.onchange = () => {
+      state.params[key] = cb.checked;
+      onChange();
+    };
+    label.append(cb, ` ${text}`);
+    options.append(label);
   }
 
   $('resetParams').onclick = () => {

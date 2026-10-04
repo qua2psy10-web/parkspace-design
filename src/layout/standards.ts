@@ -33,6 +33,10 @@ export interface LayoutParams {
   setback: number;
   /** 試算する駐車方式 */
   angles: AngleType[];
+  /** 車路の両端を連絡車路でつなぎ、行き止まりをなくす */
+  loopAisles: boolean;
+  /** 幹線車路・連絡車路・車路沿いの余白にマスを追加する */
+  infill: boolean;
 }
 
 /**
@@ -54,6 +58,8 @@ export const DEFAULT_PARAMS: LayoutParams = {
   wheelchairWidth: 3.5,
   setback: 0,
   angles: [90, 60, 45, 0],
+  loopAisles: true,
+  infill: true,
 };
 
 /** 駐車方式ごとのマス形状（車路方向のピッチと、車路に直角な奥行） */

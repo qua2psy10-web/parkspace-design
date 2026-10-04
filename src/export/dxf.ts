@@ -1,5 +1,6 @@
 import type { Pt } from '../geo/projection';
 import type { Plan } from '../layout/generator';
+import { arrowPolyline } from '../layout/arrow';
 
 /**
  * DXF（R12, AC1009）を書き出す。座標は平面直角座標（m）、
@@ -15,6 +16,7 @@ const LAYERS: { name: string; color: number }[] = [
   { name: 'AISLE', color: 3 }, // 車路（緑）
   { name: 'TRUNK', color: 4 }, // 幹線車路（水色）
   { name: 'ENTRANCE', color: 6 }, // 出入口（紫）
+  { name: 'ARROW', color: 30 }, // 一方通行の矢印（橙）
   { name: 'TEXT', color: 2 }, // 文字（黄）
 ];
 
@@ -106,6 +108,7 @@ export function buildDxf(input: DxfInput): string {
   for (const r of input.plan.aisles) poly('AISLE', r);
   for (const r of input.plan.trunks) poly('TRUNK', r);
   for (const e of input.entrances) poly('ENTRANCE', [e.a, e.b], false);
+  for (const a of input.plan.arrows) poly('ARROW', arrowPolyline(a), false);
 
   input.plan.stalls.forEach((s, i) => {
     const layer = s.kind === 'wheelchair' ? 'STALL_HC' : 'STALL';
