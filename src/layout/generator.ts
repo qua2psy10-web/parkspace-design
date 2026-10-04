@@ -26,6 +26,11 @@ export interface SiteInput {
   obstacles: Pt[][];
   /** 出入口の位置（境界線上の点） */
   entrances: Pt[];
+  /**
+   * 出入口ごとの敷地内側を向く単位ベクトル（省略時は最寄りの境界辺から求める）。
+   * エリアの接続口が穴（障害物）の輪郭上にある場合などに指定する。
+   */
+  entranceNormals?: (Pt | null)[];
 }
 
 export interface Stall {
@@ -143,7 +148,7 @@ export function generatePlans(site: SiteInput, params: LayoutParams): Plan[] {
     usable = polygonClipping.difference(usable, ...obstacles.map((o) => [toPC(o)]));
   }
 
-  const entranceNormals = entrances.map((e) => inwardNormal(boundary, e));
+  const entranceNormals = entrances.map((e, i) => site.entranceNormals?.[i] ?? inwardNormal(boundary, e));
   const plans: Plan[] = [];
 
   for (const dir of candidateDirections(boundary)) {
@@ -513,7 +518,9 @@ function toPlan(layout: Layout, frame: Frame, angle: AngleType, dir: number, ori
   for (const r of rows) r.pieces.forEach((i) => usedPieces.add(i));
   const usedConnectors = layout.connectors.filter((c) => layout.pieces[c.a].connected && (usedPieces.has(c.a) || usedPieces.has(c.b)));
 
-  const extra = params.infill ? infill(frame, layout, rows, usedConnectors, params) : [];
+  const filled = params.infill ? infill(frame, layout, rows, usedConnectors, params) : { stalls: [], pieces: new Set<number>() };
+  const extra = filled.stalls;
+  filled.pieces.forEach((i) => usedPieces.add(i));
 
   // 行き止まりの車路を数える
   const A = params.aisle[angle];
@@ -644,18 +651,28 @@ class Grid {
  * 幹線車路・連絡車路の脇には直角マス（通路幅が直角駐車の車路幅以上の場合）と縦列マス、
  * 車路の脇には縦列マスを試す。
  */
-function infill(frame: Frame, layout: Layout, rows: RowResult[], connectors: Connector[], params: LayoutParams): Pt[][] {
+function infill(
+  frame: Frame,
+  layout: Layout,
+  rows: RowResult[],
+  connectors: Connector[],
+  params: LayoutParams,
+): { stalls: Pt[][]; pieces: Set<number> } {
   const grid = new Grid(10);
   for (const r of rows) r.stalls.forEach((q) => grid.add(q));
 
-  const bandRects: { r: Pt[]; vertical: boolean }[] = [];
-  layout.pieces.filter((p) => p.connected).forEach((p) => bandRects.push({ r: rect(p.x0, p.x1, p.y0, p.y1), vertical: false }));
+  // piece: 車路片の番号（車路片の脇に置いたマスがあれば、その車路片も表示・出力に含める）
+  const bandRects: { r: Pt[]; vertical: boolean; piece?: number }[] = [];
+  layout.pieces.forEach((p, i) => {
+    if (p.connected) bandRects.push({ r: rect(p.x0, p.x1, p.y0, p.y1), vertical: false, piece: i });
+  });
   connectors.forEach((c) => bandRects.push({ r: c.rect, vertical: true }));
   frame.corridorRects.forEach((c) => bandRects.push({ r: rect(c[0].x, c[1].x, frame.ymin, frame.ymax), vertical: true }));
   // 未接続の車路片も空き地として使えるよう、交通の障害としては接続済みのものだけを扱う
   const traffic = bandRects.map((b) => b.r);
 
   const added: Pt[][] = [];
+  const usedPieces = new Set<number>();
   const tryPlace = (q: Pt[]) => {
     const b = polyBox(q);
     const edges = frame.edgesStall.filter((e) => e.ymax >= b.ymin - params.setback - 1e-6 && e.ymin <= b.ymax + params.setback + 1e-6);
@@ -690,10 +707,15 @@ function infill(frame: Frame, layout: Layout, rows: RowResult[], connectors: Con
           const a = { x: side.o.x + side.t.x * s, y: side.o.y + side.t.y * s };
           const b = { x: a.x + side.t.x * ty.along, y: a.y + side.t.y * ty.along };
           const q = [a, b, { x: b.x + side.n.x * ty.depth, y: b.y + side.n.y * ty.depth }, { x: a.x + side.n.x * ty.depth, y: a.y + side.n.y * ty.depth }];
-          s += tryPlace(q) ? ty.along : SCAN_STEP;
+          if (tryPlace(q)) {
+            if (band.piece !== undefined) usedPieces.add(band.piece);
+            s += ty.along;
+          } else {
+            s += SCAN_STEP;
+          }
         }
       }
     }
   }
-  return added;
+  return { stalls: added, pieces: usedPieces };
 }

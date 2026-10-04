@@ -2,12 +2,16 @@ import type { LatLng, Projection, Pt } from '../geo/projection';
 import { closestOnSegment } from '../geo/geometry';
 import type { MapAdapter, MarkerHandle, Shape } from './adapter';
 
-export type EditMode = 'idle' | 'boundary' | 'obstacle' | 'entrance';
+export type EditMode = 'idle' | 'boundary' | 'obstacle' | 'entrance' | 'area';
+
+export type AreaKind = 'large' | 'bike' | 'bicycle';
 
 export interface SiteState {
   boundary: LatLng[];
   obstacles: LatLng[][];
   entrances: LatLng[];
+  /** 大型車・バイク・自転車のエリア（残りは普通車） */
+  areas: { kind: AreaKind; ring: LatLng[] }[];
 }
 
 const COLORS = {
@@ -17,12 +21,20 @@ const COLORS = {
   drawing: '#ffd60a',
 };
 
+export const AREA_COLORS: Record<AreaKind, string> = {
+  large: '#ff2d55',
+  bike: '#30b0c7',
+  bicycle: '#34c759',
+};
+
 /**
  * 敷地境界・障害物・出入口を地図上で描く・動かす。
  * 変更があるたびに onChange を呼ぶ。
  */
 export class SiteEditor {
   mode: EditMode = 'idle';
+  /** 次に描くエリアの種類 */
+  areaKind: AreaKind = 'large';
   private drawing: LatLng[] = [];
   private drawingShape: Shape | null = null;
   private drawingMarkers: MarkerHandle[] = [];
@@ -50,12 +62,14 @@ export class SiteEditor {
 
   /** 描画中の多角形を確定する */
   finish() {
-    if (this.mode === 'boundary' || this.mode === 'obstacle') {
+    if (this.mode === 'boundary' || this.mode === 'obstacle' || this.mode === 'area') {
       if (this.drawing.length >= 3) {
         if (this.mode === 'boundary') {
           this.site.boundary = [...this.drawing];
           // 境界が変わると出入口の位置が合わなくなるため外す
           this.site.entrances = [];
+        } else if (this.mode === 'area') {
+          this.site.areas.push({ kind: this.areaKind, ring: [...this.drawing] });
         } else {
           this.site.obstacles.push([...this.drawing]);
         }
@@ -78,6 +92,12 @@ export class SiteEditor {
     this.onChange();
   }
 
+  removeArea(i: number) {
+    this.site.areas.splice(i, 1);
+    this.render();
+    this.onChange();
+  }
+
   removeEntrance(i: number) {
     this.site.entrances.splice(i, 1);
     this.render();
@@ -88,13 +108,14 @@ export class SiteEditor {
     this.site.boundary = [];
     this.site.obstacles = [];
     this.site.entrances = [];
+    this.site.areas = [];
     this.setMode('idle');
     this.render();
     this.onChange();
   }
 
   private handleClick(p: LatLng) {
-    if (this.mode === 'boundary' || this.mode === 'obstacle') {
+    if (this.mode === 'boundary' || this.mode === 'obstacle' || this.mode === 'area') {
       this.drawing.push(p);
       this.renderDrawing();
     } else if (this.mode === 'entrance') {
@@ -145,6 +166,12 @@ export class SiteEditor {
       this.siteShapes.push(shape);
       this.addVertexMarkers(boundary, shape, COLORS.boundary);
     }
+    this.site.areas.forEach((a) => {
+      const color = AREA_COLORS[a.kind];
+      const shape = this.map.addPolygon(a.ring, { stroke: color, strokeWidth: 2, fill: color, fillOpacity: 0.12, dashed: true });
+      this.siteShapes.push(shape);
+      this.addVertexMarkers(a.ring, shape, color);
+    });
     obstacles.forEach((o) => {
       const shape = this.map.addPolygon(o, { stroke: COLORS.obstacle, strokeWidth: 2, fill: COLORS.obstacle, fillOpacity: 0.35 });
       this.siteShapes.push(shape);

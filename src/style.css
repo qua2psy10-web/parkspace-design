@@ -256,3 +256,45 @@ tbody tr.selected {
     flex: none;
   }
 }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.tabs button[aria-selected='true'] {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+.totals {
+  font-weight: 600;
+  margin: 8px 0;
+}
+
+.area-result h3 {
+  font-size: 13px;
+  margin: 12px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.buttons + .buttons {
+  margin-top: 6px;
+}
+
+.field input[type='text'] {
+  flex: 1;
+  min-width: 0;
+}
