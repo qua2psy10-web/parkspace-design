@@ -2,7 +2,8 @@ import type { Pt } from './projection';
 
 export type Ring = Pt[];
 
-const EPS = 1e-7;
+/** 距離の許容誤差（m） */
+const DIST_EPS = 1e-6;
 
 export function sub(a: Pt, b: Pt): Pt {
   return { x: a.x - b.x, y: a.y - b.y };
@@ -46,15 +47,20 @@ function cross(o: Pt, a: Pt, b: Pt): number {
   return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
 }
 
-/** 線分 p-q と r-s が端点以外で交差するか（重なり・接触は除く） */
+/**
+ * 線分 p-q と r-s が端点以外で交差するか（重なり・接触は除く）。
+ * 相手の線分から 1μm 未満しか出ていない場合は接触とみなす（座標変換の丸め誤差対策）。
+ */
 export function segmentsCross(p: Pt, q: Pt, r: Pt, s: Pt): boolean {
+  const e1 = DIST_EPS * Math.hypot(s.x - r.x, s.y - r.y);
+  const e2 = DIST_EPS * Math.hypot(q.x - p.x, q.y - p.y);
   const d1 = cross(r, s, p);
   const d2 = cross(r, s, q);
   const d3 = cross(p, q, r);
   const d4 = cross(p, q, s);
   return (
-    ((d1 > EPS && d2 < -EPS) || (d1 < -EPS && d2 > EPS)) &&
-    ((d3 > EPS && d4 < -EPS) || (d3 < -EPS && d4 > EPS))
+    ((d1 > e1 && d2 < -e1) || (d1 < -e1 && d2 > e1)) &&
+    ((d3 > e2 && d4 < -e2) || (d3 < -e2 && d4 > e2))
   );
 }
 
@@ -190,4 +196,33 @@ export function fromPC(r: PCRing): Ring {
 /** 多角形群の全輪郭（外周・穴とも）をまとめて返す */
 export function multiRings(m: PCMulti): Ring[] {
   return m.flatMap((poly) => poly.map(fromPC));
+}
+
+/**
+ * 凸多角形どうしが重なるか（分離軸定理）。辺が接しているだけなら重ならないとみなす。
+ */
+export function convexOverlap(a: Pt[], b: Pt[], eps = 1e-6): boolean {
+  for (const poly of [a, b]) {
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i];
+      const q = poly[(i + 1) % poly.length];
+      const nx = -(q.y - p.y);
+      const ny = q.x - p.x;
+      const len = Math.hypot(nx, ny);
+      if (len === 0) continue;
+      let amin = Infinity, amax = -Infinity, bmin = Infinity, bmax = -Infinity;
+      for (const v of a) {
+        const d = (v.x * nx + v.y * ny) / len;
+        if (d < amin) amin = d;
+        if (d > amax) amax = d;
+      }
+      for (const v of b) {
+        const d = (v.x * nx + v.y * ny) / len;
+        if (d < bmin) bmin = d;
+        if (d > bmax) bmax = d;
+      }
+      if (amax <= bmin + eps || bmax <= amin + eps) return false;
+    }
+  }
+  return true;
 }
