@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>駐車場ブロック割</title>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="panel">
+        <h1>駐車場ブロック割</h1>
+
+        <section>
+          <h2>1. 地図</h2>
+          <div class="row">
+            <input id="search" type="text" placeholder="住所 または 緯度,経度" />
+            <button id="searchBtn">移動</button>
+          </div>
+          <label class="field">背景
+            <select id="baseLayer"></select>
+          </label>
+          <label class="field">平面直角座標系
+            <select id="zone"></select>
+          </label>
+          <details id="keyBox">
+            <summary>Google Maps APIキー</summary>
+            <p class="note">キーを入れるとGoogleの航空写真が使えます。キーはこのブラウザ内にだけ保存されます。未入力の間は地理院地図で動きます。</p>
+            <div class="row">
+              <input id="apiKey" type="password" placeholder="AIza..." autocomplete="off" />
+              <button id="saveKey">保存</button>
+            </div>
+            <button id="clearKey" class="link">キーを削除</button>
+          </details>
+          <p id="mapStatus" class="note"></p>
+        </section>
+
+        <section>
+          <h2>2. 敷地</h2>
+          <div class="buttons">
+            <button data-mode="boundary">範囲を描く</button>
+            <button data-mode="obstacle">障害物を追加</button>
+            <button data-mode="entrance">出入口を追加</button>
+          </div>
+          <div id="drawHint" class="hint" hidden>
+            <span id="drawHintText"></span>
+            <div class="row">
+              <button id="finishBtn" class="primary">確定</button>
+              <button id="cancelBtn">取消</button>
+            </div>
+          </div>
+          <p id="siteInfo" class="note"></p>
+          <ul id="obstacleList" class="items"></ul>
+          <ul id="entranceList" class="items"></ul>
+          <button id="clearSite" class="link">敷地をすべて消去</button>
+        </section>
+
+        <section>
+          <h2>3. 寸法条件</h2>
+          <p class="note">初期値は駐車場設計・施工指針の普通乗用車 2.5m×6.0m など。角度別の車路幅は案件の基準に合わせて修正してください。</p>
+          <div id="params" class="params"></div>
+          <div class="angles" id="angles"></div>
+          <button id="resetParams" class="link">初期値に戻す</button>
+        </section>
+
+        <section>
+          <h2>4. 自動割付</h2>
+          <button id="runBtn" class="primary wide">自動割付を実行</button>
+          <p id="runStatus" class="note"></p>
+          <table id="results" hidden>
+            <thead><tr><th>方式</th><th>車路方向</th><th>台数</th><th>車いす</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <ul id="warnings" class="warnings"></ul>
+        </section>
+
+        <section>
+          <h2>5. 出力</h2>
+          <button id="dxfBtn" class="wide" disabled>DXFを保存</button>
+          <p class="note">座標は平面直角座標（JGD2011, m）。作図X=東方向（測量Y）、作図Y=北方向（測量X）。測量図との最終合わせはCADで行ってください。</p>
+        </section>
+      </aside>
+      <main id="map"></main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
